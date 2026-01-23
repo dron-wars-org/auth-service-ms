@@ -1,104 +1,133 @@
-# Dron Wars Org – Portfolio Projects
+# auth-service – Dron Wars Org
 
-Welcome to **dron-wars-org** – my personal organization for full-stack, game-dev, and experimental projects.
+The **authentication and identity microservice** for **Dron Wars**, a browser shoot 'em up heavily inspired by the NES classic *Abadox* (1989).
 
-Here I build modern, scalable applications to refresh rusty concepts, learn the latest Java 21+ features, and create demo-ready portfolio pieces for senior-level interviews.
+This is the first microservice in an event-driven architecture using Spring Boot 3.x and Java 21+.  
+It handles user registration, login, JWT issuance, refresh tokens, basic OAuth2 (Google), and user profile management.
 
-Current flagship project: **Abadox NES Remake**  
-A modern browser remake of the classic NES horizontal shmup *Abadox* (1989), enhanced with persistent power-ups, virtual economy, real-time leaderboards, and optional co-op mode — all built with microservices and event-driven architecture.
+## Why this service first?
+- Authentication is foundational for any secure app (especially with leaderboards, persistent progress, and in-game economy).
+- Allows learning core modern Java/Spring concepts early: virtual threads, Kafka producers, Redis sessions, JWT best practices.
 
-**Why this name?** "Dron Wars" sounds cool, futuristic, and game-related — perfect for a dev org that includes shooters and real-time systems.
+## Features & Learning Objectives
 
-## Current Projects
+- **Java 21+ features**: Records for DTOs, pattern matching in switch, virtual threads for high-concurrency endpoints
+- **Spring Boot 3.x**: Security 6+, JWT with refresh tokens, Redis-backed sessions (Spring Session)
+- **Event-driven**: Kafka producer for `UserLoggedIn` and `UserRegistered` events (decouples from other services)
+- **Security**: JWT (access + refresh), OAuth2 login (Google), password hashing (BCrypt), rate limiting basics
+- **Persistence**: PostgreSQL via Spring Data JPA + Flyway migrations
+- **Observability**: Actuator endpoints + Micrometer metrics (Prometheus ready)
+- **Testing**: JUnit 5, Mockito, Testcontainers (Postgres + Kafka + Redis)
 
-### Abadox NES Remake (Main Project)
-A senior-level full-stack portfolio showcasing:
-- **Frontend**: Phaser 3 game engine + HTML5 Gamepad API (joystick support)
-- **Backend**: Event-driven microservices with Spring Boot 3.x / Java 21
-- **Real-time**: WebSockets/STOMP + Kafka messaging
-- **Persistence**: PostgreSQL + Redis caching
-- **Security**: JWT + OAuth2
-- **Infra**: Docker Compose for local dev (Postgres, Redis, Kafka)
+## Tech Stack
 
-#### Microservices (in progress)
-- **[auth-service](https://github.com/dron-wars-org/auth-service)**  
-  First microservice – handles registration, login, JWT issuance, refresh tokens, OAuth2 (Google), and user profiles.  
-  Features: Virtual threads, Kafka producers for user events, Redis sessions.
+- Java 21
+- Spring Boot 3.3+ (or latest 2025/2026 version)
+- Spring Security + JWT
+- Spring Data JPA + PostgreSQL
+- Spring Session + Redis
+- Spring Kafka (producers)
+- Lombok (optional, for boilerplate reduction)
+- Maven (build tool)
+- Docker (for local infra)
 
-More services coming soon:
-- game-core-service (real-time game logic & WebSockets)
-- progress-economy-service (scores, wallet, shop)
-- leaderboard-service (Redis Sorted Sets)
-- notification-service (emails & push via Kafka)
+## Endpoints (main ones)
 
-### Architecture Overview
+| Method | Endpoint                  | Description                          | Auth Required |
+|--------|---------------------------|--------------------------------------|---------------|
+| POST   | `/api/auth/register`      | Register new user                    | No            |
+| POST   | `/api/auth/login`         | Login + return JWT + refresh token   | No            |
+| POST   | `/api/auth/refresh`       | Refresh access token                 | Refresh token |
+| GET    | `/api/auth/profile`       | Get current user profile             | JWT           |
+| POST   | `/api/auth/google`        | OAuth2 callback (Google login)       | No            |
 
-```plantuml
-@startuml
-skinparam monochrome true
-skinparam shadowing false
-skinparam nodesep 50
-skinparam ranksep 60
+## Quick Start (Local Development)
 
-title Abadox Remake - Microservices Architecture
+### Prerequisites
+- Java 21+
+- Maven
+- Docker & Docker Compose (for Postgres, Redis, Kafka)
 
-actor Player
-
-package "Microservices" {
-  [auth-service] as Auth
-  [game-core-service] as GameCore
-  [progress-economy-service] as Progress
-  [leaderboard-service] as Leaderboard
-  [notification-service] as Notification
-}
-
-database Postgres
-database Redis
-cloud Kafka
-
-Player --> Auth : HTTPS /login (JWT)
-Player --> GameCore : WebSocket/STOMP
-
-Auth --> Kafka : UserLoggedIn
-GameCore --> Kafka : GameEnded
-Progress --> Kafka : Consume → credit coins
-Leaderboard --> Redis : Sorted Sets
-
-@enduml
+### 1. Start infrastructure
+From the root of the monorepo (or Organization):
+```bash
+docker-compose up -d postgres redis kafka zookeeper
 ```
 
-*(Render live at https://editor.plantuml.com/ – paste from docs/architecture.puml)*
+### 2. Run the service
+```bash
+cd auth-service
+mvn clean install
+mvn spring-boot:run
+```
 
-## Tech Stack Highlights (Learning Focus)
+Or with virtual threads enabled (Java 21+):
+```bash
+java --enable-preview -XX:+UseZGC -jar target/auth-service-0.0.1-SNAPSHOT.jar
+```
 
-- **Java 21+**: Records, sealed classes, pattern matching, virtual threads (Project Loom), scoped values
-- **Spring Boot 3.x**: WebFlux/Netty, Micrometer observability, AOT/GraalVM hints
-- **Kafka**: Event-driven decoupling (producers/consumers/streams)
-- **Redis**: Sessions, game state cache, real-time leaderboards
-- **Phaser 3**: 60 FPS shmup with object pooling & gamepad support
-- **Testing**: JUnit 5, Testcontainers (Postgres/Redis/Kafka), integration tests
-- **DevOps**: Docker Compose, GitHub Actions CI/CD
+→ Service runs on `http://localhost:8081` (configurable via `application.yml`)
 
-## How to Explore / Contribute
+### 3. Environment variables / application.yml example
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dron_wars
+    username: postgres
+    password: postgres
+  redis:
+    host: localhost
+    port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+jwt:
+  secret: your-very-long-secret-key-here
+  expiration-ms: 900000   # 15 min access token
+  refresh-expiration-ms: 604800000  # 7 days
+```
 
-1. Clone any repo:  
-   `git clone https://github.com/dron-wars-org/auth-service.git`
+## Project Structure
 
-2. Local setup (for Abadox main project – coming soon):  
-   See individual repo READMEs or the monorepo structure (planned).
+```
+auth-service/
+├── src/
+│   ├── main/
+│   │   ├── java/com/dronwars/auth/
+│   │   │   ├── config/          # SecurityConfig, KafkaConfig, RedisConfig
+│   │   │   ├── controller/      # AuthController
+│   │   │   ├── dto/             # RegisterRequest, LoginRequest, JwtResponse (records!)
+│   │   │   ├── entity/          # User entity
+│   │   │   ├── repository/      # UserRepository
+│   │   │   ├── service/         # AuthService, JwtService
+│   │   │   └── event/           # UserEvent (for Kafka)
+│   │   └── resources/
+│   │       ├── application.yml
+│   │       └── db/migration/    # Flyway scripts
+├── pom.xml
+└── Dockerfile
+```
 
-3. Want to collaborate or give feedback?  
-   Open an issue or PR – always welcome!
+## Testing
 
-## Goals & Motivation
+```bash
+mvn test
+```
 
-This org exists to:
-- Refresh 10+ years of experience with modern Java/Spring
-- Build something fun (shmup with joystick!) while learning seriously
-- Create interview-ready demos that show architecture depth (not just CRUD)
+- Unit tests: Services, JWT utils
+- Integration: Testcontainers for Postgres, Redis, Kafka
 
-"Code by night, slay bosses by joystick" – Don Torcuato, Buenos Aires, 2026
+## Learning Notes
+
+This service is designed to practice:
+- Virtual threads for scalable endpoints
+- Kafka producers with JsonSerializer
+- Modern JWT handling (no sessions in DB, Redis only)
+- Spring Security method-level security
+- Clean architecture (controllers → services → repositories)
+
+See full project in **dron-wars-org** Organization: https://github.com/dron-wars-org
 
 ---
 
-MIT License – fork, play, learn, enjoy!
+MIT License – part of my personal learning/portfolio  
+Pablo – Don Torcuato, Buenos Aires – 2026
