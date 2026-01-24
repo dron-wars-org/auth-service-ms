@@ -22,19 +22,6 @@ It handles user registration, login, JWT issuance, refresh tokens, basic OAuth2 
 ## Tech Stack
 
 - Java 21
-- Spring Boot 3.3+ (or latest 2025/2026 version)
-- Spring Security + JWT
-- Spring Data JPA + PostgreSQL
-- Spring Session + Redis
-- Spring Kafka (producers)
-- Lombok (optional, for boilerplate reduction)
-- Maven (build tool)
-- Docker (for local infra)
-
-## Endpoints (main ones)
-
-| Method | Endpoint                  | Description                          | Auth Required |
-|--------|---------------------------|--------------------------------------|---------------|
 | POST   | `/api/auth/register`      | Register new user                    | No            |
 | POST   | `/api/auth/login`         | Login + return JWT + refresh token   | No            |
 | POST   | `/api/auth/refresh`       | Refresh access token                 | Refresh token |
@@ -45,7 +32,7 @@ It handles user registration, login, JWT issuance, refresh tokens, basic OAuth2 
 
 ### Prerequisites
 - Java 21+
-- Maven
+- Gradle
 - Docker & Docker Compose (for Postgres, Redis, Kafka)
 
 ### 1. Start infrastructure
@@ -57,13 +44,13 @@ docker-compose up -d postgres redis kafka zookeeper
 ### 2. Run the service
 ```bash
 cd auth-service
-mvn clean install
-mvn spring-boot:run
+./gradlew clean build
+./gradlew bootRun
 ```
 
 Or with virtual threads enabled (Java 21+):
 ```bash
-java --enable-preview -XX:+UseZGC -jar target/auth-service-0.0.1-SNAPSHOT.jar
+java --enable-preview -XX:+UseZGC -jar build/libs/auth-service-0.0.1-SNAPSHOT.jar
 ```
 
 → Service runs on `http://localhost:8081` (configurable via `application.yml`)
@@ -103,14 +90,14 @@ auth-service/
 │   │   └── resources/
 │   │       ├── application.yml
 │   │       └── db/migration/    # Flyway scripts
-├── pom.xml
+├── build.gradle
 └── Dockerfile
 ```
 
 ## Testing
 
 ```bash
-mvn test
+./gradlew test
 ```
 
 - Unit tests: Services, JWT utils
