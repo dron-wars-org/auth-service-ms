@@ -1,97 +1,75 @@
-# auth-service – Dron Wars Org
+# auth-service-ms – Dron Wars Org
 
 The **authentication and identity microservice** for **Dron Wars**, a browser shoot 'em up heavily inspired by the NES classic *Abadox* (1989).
 
-This is the first microservice in an event-driven architecture using Spring Boot 3.x and Java 21+.  
-It handles user registration, login, JWT issuance, refresh tokens, basic OAuth2 (Google), and user profile management.
+This is the first microservice in an event-driven architecture using **Spring Boot 4.x** and **Java 21+**.  
+It handles user registration, login, JWT issuance, refresh tokens, and user profile management.
 
 ## Why this service first?
-- Authentication is foundational for any secure app (especially with leaderboards, persistent progress, and in-game economy).
-- Allows learning core modern Java/Spring concepts early: virtual threads, Kafka producers, Redis sessions, JWT best practices.
+- Authentication is foundational for any secure app.
+- Implementation of modern Java/Spring concepts: virtual threads, Kafka producers, Redis sessions, and SOLID architecture.
 
-## Features & Learning Objectives
+## Features & Tech Stack
 
-- **Java 21+ features**: Records for DTOs, pattern matching in switch, virtual threads for high-concurrency endpoints
-- **Spring Boot 3.x**: Security 6+, JWT with refresh tokens, Redis-backed sessions (Spring Session)
-- **Event-driven**: Kafka producer for `UserLoggedIn` and `UserRegistered` events (decouples from other services)
-- **Security**: JWT (access + refresh), OAuth2 login (Google), password hashing (BCrypt), rate limiting basics
-- **Persistence**: PostgreSQL via Spring Data JPA + Flyway migrations
-- **Observability**: Actuator endpoints + Micrometer metrics (Prometheus ready)
-- **Testing**: JUnit 5, Mockito, Testcontainers (Postgres + Kafka + Redis)
-
-## Tech Stack
-
-- Java 21
-| POST   | `/api/auth/register`      | Register new user                    | No            |
-| POST   | `/api/auth/login`         | Login + return JWT + refresh token   | No            |
-| POST   | `/api/auth/refresh`       | Refresh access token                 | Refresh token |
-| GET    | `/api/auth/profile`       | Get current user profile             | JWT           |
-| POST   | `/api/auth/google`        | OAuth2 callback (Google login)       | No            |
+- **Java 21**: Virtual threads enabled for high concurrency.
+- **Spring Boot 4.0.x**: Using the latest state-of-the-art features.
+- **Security**: JWT (access + refresh) with Spring Security 6+.
+- **Event-driven**: Kafka producer for `UserLoggedIn` and `UserRegistered` events.
+- **Persistence**: PostgreSQL via Spring Data JPA.
+- **Caching/Sessions**: Redis for token management.
+- **Mapeo**: MapStruct 1.6.3 for high-performance DTO/Entity conversion.
 
 ## Quick Start (Local Development)
 
 ### Prerequisites
 - Java 21+
-- Gradle
-- Docker & Docker Compose (for Postgres, Redis, Kafka)
+- Gradle 8.x
+- **Minikube** (for local infrastructure)
 
-### 1. Start infrastructure
-From the root of the monorepo (or Organization):
+### 1. Start Infrastructure (Minikube)
+Ensure Minikube is running and apply the manifests:
 ```bash
-docker-compose up -d postgres redis kafka zookeeper
+minikube start
+kubectl apply -f data/k8s/
 ```
+> [!NOTE]
+> Check `data/instrucciones-minikube.md` for detailed service status and NodePorts.
 
 ### 2. Run the service
+The service is configured to run on port **8080**.
 ```bash
-cd auth-service
-./gradlew clean build
 ./gradlew bootRun
 ```
 
-Or with virtual threads enabled (Java 21+):
+Or with specific profile:
 ```bash
-java --enable-preview -XX:+UseZGC -jar build/libs/auth-service-0.0.1-SNAPSHOT.jar
+./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-→ Service runs on `http://localhost:8081` (configurable via `application.yml`)
+→ Service runs on `http://localhost:8080`
 
-### 3. Environment variables / application.yml example
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/dron_wars
-    username: postgres
-    password: postgres
-  redis:
-    host: localhost
-    port: 6379
-  kafka:
-    bootstrap-servers: localhost:9092
-jwt:
-  secret: your-very-long-secret-key-here
-  expiration-ms: 900000   # 15 min access token
-  refresh-expiration-ms: 604800000  # 7 days
-```
+### 3. Local Environment Configuration
+Configuration is managed via `src/main/resources/application-local.properties`.
+
+Default Minikube NodePorts (assuming Minikube IP is `192.168.49.2`):
+- **Postgres**: `192.168.49.2:30543`
+- **Redis**: `192.168.49.2:30379`
+- **Kafka**: `192.168.49.2:30092`
 
 ## Project Structure
 
 ```
-auth-service/
-├── src/
-│   ├── main/
-│   │   ├── java/com/dronwars/auth/
-│   │   │   ├── config/          # SecurityConfig, KafkaConfig, RedisConfig
-│   │   │   ├── controller/      # AuthController
-│   │   │   ├── dto/             # RegisterRequest, LoginRequest, JwtResponse (records!)
-│   │   │   ├── entity/          # User entity
-│   │   │   ├── repository/      # UserRepository
-│   │   │   ├── service/         # AuthService, JwtService
-│   │   │   └── event/           # UserEvent (for Kafka)
-│   │   └── resources/
-│   │       ├── application.yml
-│   │       └── db/migration/    # Flyway scripts
-├── build.gradle
-└── Dockerfile
+auth-service-ms/
+├── src/main/java/com/pablovass/authservice/
+│   ├── config/          # Spring Configuration (Security, Kafka, Redis)
+│   ├── controller/      # REST API Endpoints
+│   ├── domain/model/    # Domain entities (User)
+│   ├── repository/      # Spring Data Repositories
+│   ├── service/         # Business Logic & JWT handling
+│   └── AuthServiceMsApplication.java
+└── src/main/resources/
+    ├── application.properties
+    └── application-local.properties
 ```
 
 ## Testing
@@ -100,19 +78,15 @@ auth-service/
 ./gradlew test
 ```
 
-- Unit tests: Services, JWT utils
-- Integration: Testcontainers for Postgres, Redis, Kafka
-
 ## Learning Notes
 
-This service is designed to practice:
-- Virtual threads for scalable endpoints
-- Kafka producers with JsonSerializer
-- Modern JWT handling (no sessions in DB, Redis only)
-- Spring Security method-level security
-- Clean architecture (controllers → services → repositories)
+This service practices:
+- **Clean Architecture**: Separation of concerns between layers.
+- **SOLID Principles**: Focused on maintainability and testability.
+- **Virtual Threads**: Mandatory for handling high volumes of concurrent auth requests.
+- **MapStruct**: Best practice for immutable Records (DTOs).
 
-See full project in **dron-wars-org** Organization: https://github.com/dron-wars-org
+See the full project documentation in the `RULES/` directory of the organization.
 
 ---
 
