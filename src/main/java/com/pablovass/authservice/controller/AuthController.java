@@ -1,5 +1,7 @@
 package com.pablovass.authservice.controller;
 
+import com.pablovass.authservice.controller.dto.LoginRequest;
+import com.pablovass.authservice.controller.dto.LoginResponse;
 import com.pablovass.authservice.controller.dto.RegisterRequest;
 import com.pablovass.authservice.service.AuthService;
 import jakarta.validation.Valid;
@@ -25,5 +27,11 @@ public class AuthController {
         authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(Map.of("message", "Usuario registrado exitosamente"));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
     }
 }
