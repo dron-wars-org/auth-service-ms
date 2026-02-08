@@ -25,23 +25,45 @@ public class RedisTokenService {
 
     /**
      * Genera y almacena un refresh token en Redis.
+     * Almacena bidireccional: userId -> token y token -> userId
      *
      * @param userId ID del usuario
      * @return Refresh token generado (UUID)
      */
     public String generateAndStoreRefreshToken(Long userId) {
         String refreshToken = UUID.randomUUID().toString();
-        String key = "refresh_token:" + userId;
+        String userKey = "refresh_token:" + userId;
+        String tokenKey = "token_user:" + refreshToken;
         
-        // Almacenar en Redis con TTL
+        // Almacenar bidireccional en Redis con TTL
         redisTemplate.opsForValue().set(
-            key,
+            userKey,
             refreshToken,
             refreshTokenExpiration,
             TimeUnit.MILLISECONDS
         );
         
+        // Mapeo inverso para recuperar userId desde el token
+        redisTemplate.opsForValue().set(
+            tokenKey,
+            userId.toString(),
+            refreshTokenExpiration,
+            TimeUnit.MILLISECONDS
+        );
+        
         return refreshToken;
+    }
+
+    /**
+     * Obtiene el userId asociado a un refresh token.
+     *
+     * @param refreshToken Token a consultar
+     * @return userId si el token existe, null si no
+     */
+    public Long getUserIdFromRefreshToken(String refreshToken) {
+        String tokenKey = "token_user:" + refreshToken;
+        String userIdStr = redisTemplate.opsForValue().get(tokenKey);
+        return userIdStr != null ? Long.parseLong(userIdStr) : null;
     }
 
     /**

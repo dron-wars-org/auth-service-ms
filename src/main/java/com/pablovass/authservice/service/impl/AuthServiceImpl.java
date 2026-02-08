@@ -2,6 +2,8 @@ package com.pablovass.authservice.service.impl;
 
 import com.pablovass.authservice.controller.dto.LoginRequest;
 import com.pablovass.authservice.controller.dto.LoginResponse;
+import com.pablovass.authservice.controller.dto.RefreshRequest;
+import com.pablovass.authservice.controller.dto.RefreshResponse;
 import com.pablovass.authservice.controller.dto.RegisterRequest;
 import com.pablovass.authservice.controller.mapper.UserMapper;
 import com.pablovass.authservice.domain.model.entity.User;
@@ -96,6 +98,32 @@ public class AuthServiceImpl implements AuthService {
             accessTokenExpiration,
             user.getUsername()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RefreshResponse refresh(RefreshRequest request) {
+        // Obtener userId desde el refresh token
+        Long userId = redisTokenService.getUserIdFromRefreshToken(request.refreshToken());
+        
+        if (userId == null) {
+            throw new BadCredentialsException("Refresh token inválido o expirado");
+        }
+
+        // Validar que el token coincida con el almacenado
+        if (!redisTokenService.validateRefreshToken(userId, request.refreshToken())) {
+            throw new BadCredentialsException("Refresh token inválido o expirado");
+        }
+
+        // Buscar usuario en la base de datos
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
+
+        // Generar nuevo Access Token
+        String role = user.getRoles().stream().findFirst().orElse("ROLE_USER");
+        String newAccessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), role);
+
+        return new RefreshResponse(newAccessToken, accessTokenExpiration);
     }
 
     private void publishEvent(Object event) {
