@@ -5,11 +5,14 @@ import com.pablovass.authservice.controller.dto.LoginResponse;
 import com.pablovass.authservice.controller.dto.RefreshRequest;
 import com.pablovass.authservice.controller.dto.RefreshResponse;
 import com.pablovass.authservice.controller.dto.RegisterRequest;
+import com.pablovass.authservice.controller.dto.UserProfileResponse;
 import com.pablovass.authservice.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +43,12 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<RefreshResponse> refresh(@Valid @RequestBody RefreshRequest request) {
         RefreshResponse response = authService.refresh(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<UserProfileResponse> getProfile(@AuthenticationPrincipal Long userId) {
+        UserProfileResponse response = authService.getProfile(userId);
         return ResponseEntity.ok(response);
     }
 }

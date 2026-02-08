@@ -5,6 +5,7 @@ import com.pablovass.authservice.controller.dto.LoginResponse;
 import com.pablovass.authservice.controller.dto.RefreshRequest;
 import com.pablovass.authservice.controller.dto.RefreshResponse;
 import com.pablovass.authservice.controller.dto.RegisterRequest;
+import com.pablovass.authservice.controller.dto.UserProfileResponse;
 import com.pablovass.authservice.controller.mapper.UserMapper;
 import com.pablovass.authservice.domain.model.entity.User;
 import com.pablovass.authservice.repository.UserRepository;
@@ -124,6 +125,20 @@ public class AuthServiceImpl implements AuthService {
         String newAccessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), role);
 
         return new RefreshResponse(newAccessToken, accessTokenExpiration);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
+
+        return new UserProfileResponse(
+            user.getId(),
+            user.getUsername(),
+            user.getEmail(),
+            user.getCreatedAt()
+        );
     }
 
     private void publishEvent(Object event) {
