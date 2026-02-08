@@ -2,6 +2,7 @@ package com.pablovass.authservice.service.impl;
 
 import com.pablovass.authservice.controller.dto.LoginRequest;
 import com.pablovass.authservice.controller.dto.LoginResponse;
+import com.pablovass.authservice.controller.dto.GoogleLoginRequest;
 import com.pablovass.authservice.controller.dto.RefreshRequest;
 import com.pablovass.authservice.controller.dto.RefreshResponse;
 import com.pablovass.authservice.controller.dto.RegisterRequest;
@@ -14,6 +15,10 @@ import com.pablovass.authservice.service.JwtService;
 import com.pablovass.authservice.service.RedisTokenService;
 import com.pablovass.authservice.service.event.UserLoggedInEvent;
 import com.pablovass.authservice.service.event.UserRegisteredEvent;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +49,9 @@ public class AuthServiceImpl implements AuthService {
     @Value("${jwt.access-token-expiration}")
     private Long accessTokenExpiration;
 
+    @Value("${google.client-id}")
+    private String googleClientId;
+
     @Override
     @Transactional
     public void register(RegisterRequest request) {
@@ -57,6 +65,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userMapper.toEntity(request);
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setRoles(Collections.singleton("ROLE_USER"));
+        user.setProvider("LOCAL");
 
         User savedUser = userRepository.save(user);
         
@@ -75,10 +84,83 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas"));
 
+        if (!"LOCAL".equals(user.getProvider())) {
+            throw new BadCredentialsException("Por favor use " + user.getProvider() + " para iniciar sesión");
+        }
+
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new BadCredentialsException("Credenciales inválidas");
         }
 
+        return createLoginResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public LoginResponse googleLogin(GoogleLoginRequest request) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(request.idToken());
+            if (idToken == null) {
+                throw new BadCredentialsException("Token de Google inválido");
+            }
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+            
+            // Buscar usuario o crear uno nuevo
+            User user = userRepository.findByEmail(email)
+                    .orElseGet(() -> registerGoogleUser(email, name));
+
+            if (!"GOOGLE".equals(user.getProvider())) {
+                throw new BadCredentialsException("Este email ya está registrado con otro método");
+            }
+
+            return createLoginResponse(user);
+
+        } catch (BadCredentialsException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error en Google Login: {}", e.getMessage());
+            throw new BadCredentialsException("Fallo en la autenticación con Google");
+        }
+    }
+
+    private User registerGoogleUser(String email, String name) {
+        String baseUsername = email.split("@")[0];
+        String username = baseUsername;
+        int count = 1;
+        
+        // Evitar colisiones de username
+        while (userRepository.existsByUsername(username)) {
+            username = baseUsername + count++;
+        }
+
+        User user = User.builder()
+                .email(email)
+                .username(username)
+                .password("") // No password for social login
+                .provider("GOOGLE")
+                .roles(Collections.singleton("ROLE_USER"))
+                .build();
+
+        User savedUser = userRepository.save(user);
+
+        publishEvent(new UserRegisteredEvent(
+            savedUser.getId(),
+            savedUser.getUsername(),
+            savedUser.getEmail(),
+            LocalDateTime.now()
+        ));
+
+        return savedUser;
+    }
+
+    private LoginResponse createLoginResponse(User user) {
         // Generar Access Token
         String role = user.getRoles().stream().findFirst().orElse("ROLE_USER");
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), role);

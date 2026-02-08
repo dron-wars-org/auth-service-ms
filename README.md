@@ -56,6 +56,12 @@ Default Minikube NodePorts (assuming Minikube IP is `192.168.49.2`):
 - **Redis**: `192.168.49.2:30379`
 - **Kafka**: `192.168.49.2:30092`
 
+### ⚠️ Nota Importante para el Entorno Local
+He dejado placeholders para el Google Client ID. Para que la integración social funcione realmente, deberás:
+1. Obtener un **Client ID** desde la [Consola de Google Cloud](https://console.cloud.google.com/).
+2. Configurarlo en el backend: `application-local.properties` -> `google.client-id`.
+3. Configurarlo en el frontend: `LoginScene.js` y `RegisterScene.js` -> método `initGoogleSignIn`.
+
 ## Project Structure
 
 ```

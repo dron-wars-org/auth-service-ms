@@ -2,6 +2,7 @@ package com.pablovass.authservice.controller;
 
 import com.pablovass.authservice.controller.dto.LoginRequest;
 import com.pablovass.authservice.controller.dto.LoginResponse;
+import com.pablovass.authservice.controller.dto.GoogleLoginRequest;
 import com.pablovass.authservice.controller.dto.RefreshRequest;
 import com.pablovass.authservice.controller.dto.RefreshResponse;
 import com.pablovass.authservice.controller.dto.RegisterRequest;
@@ -43,6 +44,12 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<RefreshResponse> refresh(@Valid @RequestBody RefreshRequest request) {
         RefreshResponse response = authService.refresh(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<LoginResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
+        LoginResponse response = authService.googleLogin(request);
         return ResponseEntity.ok(response);
     }
 
